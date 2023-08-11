@@ -19,16 +19,12 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreateOptionsMenu(menu: Menu?): Boolean {
         menuInflater.inflate(R.menu.book_menu, menu)
-        println("naber?")
         return super.onCreateOptionsMenu(menu)
     }
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
 
-        println("menüye tıklandı")
-
-        if (item.itemId == R.id.add_book_item){
-            println("add butonuna tıklandı")
+        if (item.itemId == R.id.add_book_item) {
             val intent = Intent(this@MainActivity, BookActivity::class.java)
             startActivity(intent)
         }
@@ -38,3 +34,4 @@ class MainActivity : AppCompatActivity() {
 
 
 }
+
