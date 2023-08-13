@@ -5,7 +5,9 @@ import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.view.View
 import android.Manifest
+import android.content.Context
 import android.content.Intent
+import android.database.sqlite.SQLiteDatabase
 import android.graphics.Bitmap
 import android.graphics.ImageDecoder
 import android.os.Build
@@ -17,11 +19,13 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.example.kotlinlibraryapp.databinding.ActivityBookBinding
 import com.google.android.material.snackbar.Snackbar
+import java.io.ByteArrayOutputStream
 
 private lateinit var binding: ActivityBookBinding
 private lateinit var activityResultLauncher: ActivityResultLauncher<Intent>
 private lateinit var permissionLauncher: ActivityResultLauncher<String>
 var selectedBitmap: Bitmap? = null
+private lateinit var database : SQLiteDatabase
 
 
 class BookActivity : AppCompatActivity() {
@@ -30,6 +34,8 @@ class BookActivity : AppCompatActivity() {
         binding = ActivityBookBinding.inflate(layoutInflater)
         val view = binding.root
         setContentView(view)
+
+        database = this.openOrCreateDatabase("Arts", Context.MODE_PRIVATE,null)
 
         registerLauncher()
 
@@ -40,22 +46,11 @@ class BookActivity : AppCompatActivity() {
 
         //Android 33 ve üzerinde ise READ_MEDIA_IMAGES şeklinde izin istemeliyiz
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-
-
-            println("deneme1")
-
-
             // Bu if koşulu kullanıcı galeri erişim izni vermediği durumlarda çalışır
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_MEDIA_IMAGES) != PackageManager.PERMISSION_GRANTED) {
-
-                println("deneme2")
-
                 // Bu if koşulu kullanıcı galeriye erişim iznini en az bir kez reddettiğinde çalışır
                 if (ActivityCompat.shouldShowRequestPermissionRationale(this, Manifest.permission.READ_MEDIA_IMAGES)) {
                     //rationable
-
-                    println("deneme3")
-
                     Snackbar.make(view, "Permission needed for galery", Snackbar.LENGTH_INDEFINITE).setAction("Give Permission", View.OnClickListener {
                         //request permission
                         permissionLauncher.launch(Manifest.permission.READ_MEDIA_IMAGES)
@@ -63,9 +58,6 @@ class BookActivity : AppCompatActivity() {
                 }
                 //eğer daha önce galeri erişim izni reddedilmediği ancak izin de verilmediği durumlarda izin istemek için kullanılır
                 else {
-
-                    println("deneme4")
-
                     //request permission
                     permissionLauncher.launch(Manifest.permission.READ_MEDIA_IMAGES)
                 }
@@ -110,8 +102,75 @@ class BookActivity : AppCompatActivity() {
 
     }
 
-    fun SaveButtonOnClick(view: View) {
+    fun saveButtonOnClick(view: View) {
 
+        val bookName= binding.edtTxtBookName.text.toString()
+        val authorName= binding.edtTxtAuthorName.text.toString()
+        val topic= binding.editTextMultiLineTopic.text.toString()
+
+        if (selectedBitmap!=null){
+
+            println("deneme 1")
+            println("deneme 1.1")
+            val smallBitmap = makeSmallerBitmap(selectedBitmap!!,150)
+
+            println("deneme 1.2")
+
+            //görseli kayıt için byte dizisine dönüştürüyoruz
+            val outputStream = ByteArrayOutputStream()
+            smallBitmap.compress(Bitmap.CompressFormat.PNG,50,outputStream)
+            val byteArray = outputStream.toByteArray()
+
+            println("deneme 2")
+
+            try {
+                println("deneme 3")
+                database.execSQL("CREATE TABLE IF NOT EXISTS books (id INTEGER PRIMARY KEY, bookname VARCHAR, author VARCHAR, topic VARCHAR, image BLOB)")
+
+                val sqlString= "INSERT INTO books (bookname, author, topic, image) VALUES (?, ?, ?, ?)"
+                val statement= database.compileStatement(sqlString)
+                statement.bindString(1,bookName)
+                statement.bindString(2,authorName)
+                statement.bindString(3,topic)
+                statement.bindBlob(4,byteArray)
+                statement.execute()
+
+                println("deneme 4")
+
+            }catch(e : Exception){
+                e.printStackTrace()
+                println("deneme 5")
+            }
+
+            println("deneme 6")
+
+            val intent = Intent(this@BookActivity, MainActivity::class.java)
+            //aşağıdaki komut arkaplanda çalışan ne kadar aktivite varsa kapatarak intent yapacağımız aktiviteye gitmemizi sağlar
+            intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            startActivity(intent)
+
+        }
+
+    }
+
+    //Veri tabanına kaydedilecek görselin boyutunu küçültmek için oluşturuldu.
+    private fun makeSmallerBitmap(image:Bitmap, maxSize:Int) : Bitmap{
+
+        var width = image.width
+        var height = image.height
+
+        val bitmapRatio : Double = width.toDouble() / height.toDouble()
+        if (bitmapRatio > 1) {
+            width = maxSize
+            val scaledHeight = width / bitmapRatio
+            height = scaledHeight.toInt()
+        } else {
+            height = maxSize
+            val scaledWidth = height * bitmapRatio
+            width = scaledWidth.toInt()
+        }
+
+        return Bitmap.createScaledBitmap(image,width,height,true)
     }
 
 
@@ -146,19 +205,11 @@ class BookActivity : AppCompatActivity() {
 
         permissionLauncher = registerForActivityResult(ActivityResultContracts.RequestPermission()) { result ->
 
-            println("deneme5")
-
             if (result) {
-
-                println("deneme6")
-
                 //permission granted
                 val intentToGallery = Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI)
                 activityResultLauncher.launch(intentToGallery)
             } else {
-
-                println("deneme7")
-
                 //permission denied
                 Toast.makeText(this@BookActivity, "Permission needed!", Toast.LENGTH_LONG).show()
             }
