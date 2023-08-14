@@ -59,6 +59,7 @@ class MainActivity : AppCompatActivity() {
 
         if (item.itemId == R.id.add_book_item) {
             val intent = Intent(this@MainActivity, BookActivity::class.java)
+            intent.putExtra("info", "new")
             startActivity(intent)
         }
 

@@ -9,6 +9,7 @@ import android.content.Context
 import android.content.Intent
 import android.database.sqlite.SQLiteDatabase
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.ImageDecoder
 import android.os.Build
 import android.provider.MediaStore
@@ -35,9 +36,44 @@ class BookActivity : AppCompatActivity() {
         val view = binding.root
         setContentView(view)
 
-        database = this.openOrCreateDatabase("Arts", Context.MODE_PRIVATE,null)
+        database = this.openOrCreateDatabase("Books", Context.MODE_PRIVATE,null)
 
         registerLauncher()
+
+        val intent= intent
+        val info= intent.getStringExtra("info")
+
+        if (info.equals("new")){
+            binding.btnSave.visibility=View.VISIBLE
+            binding.edtTxtBookName.setText("")
+            binding.edtTxtAuthorName.setText("")
+            binding.editTextMultiLineTopic.setText("")
+            binding.imgVSelectImage.setImageResource(R.drawable.selectimage)
+
+        }else{
+            binding.btnSave.visibility= View.INVISIBLE
+            val selectedId= intent.getIntExtra("id", 1)
+
+            val cursor = database.rawQuery("SELECT * FROM books WHERE id = ?", arrayOf(selectedId.toString()) )
+
+            val booknameIx = cursor.getColumnIndex("bookname")
+            val authorIx = cursor.getColumnIndex("author")
+            val topicIx = cursor.getColumnIndex("topic")
+            val imageIx = cursor.getColumnIndex("image")
+
+            while (cursor.moveToNext()){
+                binding.edtTxtBookName.setText(cursor.getString(booknameIx))
+                binding.edtTxtAuthorName.setText(cursor.getString(authorIx))
+                binding.editTextMultiLineTopic.setText(cursor.getString(topicIx))
+
+                val byteArray = cursor.getBlob(imageIx)
+                val bitmap = BitmapFactory.decodeByteArray(byteArray,0,byteArray.size)
+                binding.imgVSelectImage.setImageBitmap(bitmap)
+            }
+
+            cursor.close()
+
+        }
 
 
     }
@@ -110,21 +146,14 @@ class BookActivity : AppCompatActivity() {
 
         if (selectedBitmap!=null){
 
-            println("deneme 1")
-            println("deneme 1.1")
             val smallBitmap = makeSmallerBitmap(selectedBitmap!!,150)
-
-            println("deneme 1.2")
 
             //görseli kayıt için byte dizisine dönüştürüyoruz
             val outputStream = ByteArrayOutputStream()
             smallBitmap.compress(Bitmap.CompressFormat.PNG,50,outputStream)
             val byteArray = outputStream.toByteArray()
 
-            println("deneme 2")
-
             try {
-                println("deneme 3")
                 database.execSQL("CREATE TABLE IF NOT EXISTS books (id INTEGER PRIMARY KEY, bookname VARCHAR, author VARCHAR, topic VARCHAR, image BLOB)")
 
                 val sqlString= "INSERT INTO books (bookname, author, topic, image) VALUES (?, ?, ?, ?)"
@@ -135,14 +164,9 @@ class BookActivity : AppCompatActivity() {
                 statement.bindBlob(4,byteArray)
                 statement.execute()
 
-                println("deneme 4")
-
             }catch(e : Exception){
                 e.printStackTrace()
-                println("deneme 5")
             }
-
-            println("deneme 6")
 
             val intent = Intent(this@BookActivity, MainActivity::class.java)
             //aşağıdaki komut arkaplanda çalışan ne kadar aktivite varsa kapatarak intent yapacağımız aktiviteye gitmemizi sağlar
